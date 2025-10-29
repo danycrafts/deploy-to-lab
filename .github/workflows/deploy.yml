@@ -10,6 +10,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
+      ANSIBLE_CONFIG: ansible/ansible.cfg
       HOME_LAB_IP: ${{ secrets.HOME_LAB_IP }}
       HOME_LAB_USER: ${{ secrets.HOME_LAB_USER }}
       HOME_LAB_PASSWORD: ${{ secrets.HOME_LAB_PASSWORD }}
