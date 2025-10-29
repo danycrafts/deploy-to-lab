@@ -47,5 +47,5 @@
   ansible.builtin.set_fact:
     community_docker_python_interpreter: "{{ python_virtualenv_root }}/{{ community_docker_venv_name }}/bin/python"
     docker_python_interpreter: "{{ python_virtualenv_root }}/{{ community_docker_venv_name }}/bin/python"
-  cacheable: true
+    cacheable: true
 
