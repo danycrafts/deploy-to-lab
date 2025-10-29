@@ -12,20 +12,6 @@ on:
           - install
           - update
           - uninstall
-      target:
-        description: "Remote target in user@host format"
-        required: true
-        type: string
-      ssh_port:
-        description: "SSH port for the remote host"
-        required: false
-        default: '22'
-        type: string
-      compose_command:
-        description: "Docker compose command available on the remote host"
-        required: false
-        default: "docker compose"
-        type: string
       services:
         description: "Whitespace-separated list of services to manage (leave blank for all)"
         required: false
@@ -43,21 +29,45 @@ jobs:
     permissions:
       contents: read
     env:
-      TARGET: ${{ inputs.target }}
-      SSH_PORT: ${{ inputs.ssh_port }}
-      COMPOSE_COMMAND: ${{ inputs.compose_command }}
+      HOME_LAB_IP: ${{ secrets.HOME_LAB_IP }}
+      HOME_LAB_USER: ${{ secrets.HOME_LAB_USER }}
+      HOME_LAB_PASSWORD: ${{ secrets.HOME_LAB_PASSWORD }}
+      ANSIBLE_BECOME_PASS: ${{ secrets.HOME_LAB_PASSWORD }}
+      TARGET: ${{ format('{0}@{1}', secrets.HOME_LAB_USER, secrets.HOME_LAB_IP) }}
+      SSH_PORT: '22'
+      COMPOSE_COMMAND: docker compose
       SERVICES: ${{ inputs.services }}
       ACTION: ${{ inputs.action }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Ensure SSH private key is available
+      - name: Ensure required secrets are available
         env:
           SSH_PRIVATE_KEY_HOME_LAB: ${{ secrets.SSH_PRIVATE_KEY_HOME_LAB }}
         run: |
+          set -euo pipefail
+
+          missing=()
+
           if [ -z "${SSH_PRIVATE_KEY_HOME_LAB:-}" ]; then
-            echo "::error::Missing required secret SSH_PRIVATE_KEY_HOME_LAB" >&2
+            missing+=(SSH_PRIVATE_KEY_HOME_LAB)
+          fi
+
+          if [ -z "${HOME_LAB_IP:-}" ]; then
+            missing+=(HOME_LAB_IP)
+          fi
+
+          if [ -z "${HOME_LAB_USER:-}" ]; then
+            missing+=(HOME_LAB_USER)
+          fi
+
+          if [ -z "${HOME_LAB_PASSWORD:-}" ]; then
+            missing+=(HOME_LAB_PASSWORD)
+          fi
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            printf '::error::Missing required secrets: %s\n' "${missing[*]}" >&2
             exit 1
           fi
 
