@@ -27,25 +27,21 @@
       - python3-docker
     state: present
 
-- name: Ensure Python virtual environment root exists
-  ansible.builtin.file:
-    path: "{{ python_virtualenv_root }}"
-    state: directory
-    mode: "0755"
+- name: Check if Python environment is externally managed
+  ansible.builtin.stat:
+    path: /usr/lib/python3/dist-packages/EXTERNALLY-MANAGED
+  register: python_externally_managed
 
-- name: Deploy community.docker requirements manifest
-  ansible.builtin.template:
-    src: community_docker_requirements.txt.j2
-    dest: "{{ python_virtualenv_root }}/{{ community_docker_requirements_filename }}"
-    mode: "0644"
-
-- name: Install community.docker dependencies into virtualenv
+- name: Ensure community.docker collection dependencies are present
   ansible.builtin.pip:
     requirements: "{{ python_virtualenv_root }}/{{ community_docker_requirements_filename }}"
     virtualenv: "{{ python_virtualenv_root }}/{{ community_docker_venv_name }}"
     virtualenv_command: python3 -m venv
     state: present
-    extra_args: --upgrade
+    extra_args: >-
+      {{ '--upgrade --break-system-packages'
+         if python_externally_managed.stat.exists | default(false)
+         else '--upgrade' }}
 
 - name: Cache community.docker Python interpreter path
   ansible.builtin.set_fact:
