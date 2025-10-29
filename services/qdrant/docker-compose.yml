@@ -1,0 +1,11 @@
+version: "3.9"
+
+services:
+  qdrant:
+    image: qdrant/qdrant:${QDRANT_VERSION}
+    restart: unless-stopped
+    ports:
+      - "${QDRANT_PORT}:6333"
+      - "${QDRANT_GRPC_PORT}:6334"
+    volumes:
+      - ${DATA_PATH}:/qdrant/storage
