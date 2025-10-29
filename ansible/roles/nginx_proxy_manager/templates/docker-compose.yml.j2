@@ -1,0 +1,35 @@
+version: "3.9"
+services:
+  app:
+    image: jc21/nginx-proxy-manager:{{ nginx_proxy_manager_version }}
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "{{ nginx_proxy_manager_http_port }}:81"
+      - "443:443"
+      - "{{ nginx_proxy_manager_https_port }}:444"
+    environment:
+      DB_MYSQL_HOST: db
+      DB_MYSQL_PORT: 3306
+      DB_MYSQL_USER: npm
+      DB_MYSQL_PASSWORD: npm_password
+      DB_MYSQL_NAME: npm
+    volumes:
+      - {{ nginx_proxy_manager_data_path }}/data:/data
+      - {{ nginx_proxy_manager_data_path }}/letsencrypt:/etc/letsencrypt
+    depends_on:
+      - db
+  db:
+    image: mariadb:{{ nginx_proxy_manager_db_version }}
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: npm_root_password
+      MYSQL_DATABASE: npm
+      MYSQL_USER: npm
+      MYSQL_PASSWORD: npm_password
+    volumes:
+      - {{ nginx_proxy_manager_data_path }}/db:/var/lib/mysql
+volumes: {}
+networks:
+  default:
+    driver: bridge

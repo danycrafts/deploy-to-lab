@@ -1,0 +1,40 @@
+---
+- name: Ensure Mailcow directory exists
+  ansible.builtin.file:
+    path: "{{ mailcow_data_path }}"
+    state: directory
+    mode: "0750"
+  when: mailcow_state == 'present'
+
+- name: Fetch Mailcow repository
+  ansible.builtin.git:
+    repo: "https://github.com/{{ mailcow_repository }}.git"
+    dest: "{{ mailcow_data_path }}"
+    version: "{{ mailcow_version }}"
+    force: true
+  when: mailcow_state == 'present'
+
+- name: Render Mailcow configuration
+  ansible.builtin.template:
+    src: mailcow.conf.j2
+    dest: "{{ mailcow_data_path }}/mailcow.conf"
+    mode: "0640"
+  when: mailcow_state == 'present'
+
+- name: Start Mailcow stack
+  community.docker.docker_compose:
+    project_src: "{{ mailcow_data_path }}"
+    state: present
+  when: mailcow_state == 'present'
+
+- name: Stop Mailcow stack when absent
+  community.docker.docker_compose:
+    project_src: "{{ mailcow_data_path }}"
+    state: absent
+  when: mailcow_state == 'absent'
+
+- name: Remove Mailcow directory when absent
+  ansible.builtin.file:
+    path: "{{ mailcow_data_path }}"
+    state: absent
+  when: mailcow_state == 'absent'
