@@ -27,11 +27,19 @@
       - python3-docker
     state: present
 
+- name: Check if Python environment is externally managed
+  ansible.builtin.stat:
+    path: /usr/lib/python3/dist-packages/EXTERNALLY-MANAGED
+  register: python_externally_managed
+
 - name: Ensure community.docker collection dependencies are present
   ansible.builtin.pip:
     name:
       - docker
       - docker-compose
     state: present
-    extra_args: --upgrade
+    extra_args: >-
+      {{ '--upgrade --break-system-packages'
+         if python_externally_managed.stat.exists | default(false)
+         else '--upgrade' }}
 
