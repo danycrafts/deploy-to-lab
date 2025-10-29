@@ -1,0 +1,50 @@
+name: Deploy to Home Lab
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      HOME_LAB_IP: ${{ secrets.HOME_LAB_IP }}
+      HOME_LAB_USER: ${{ secrets.HOME_LAB_USER }}
+      HOME_LAB_PASSWORD: ${{ secrets.HOME_LAB_PASSWORD }}
+      ANSIBLE_BECOME_PASS: ${{ secrets.HOME_LAB_PASSWORD }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Ansible dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible==9.5.1
+          ansible-galaxy collection install -r ansible/requirements.yml
+
+      - name: Configure SSH access
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY_HOME_LAB }}
+          SSH_PUBLIC_KEY: ${{ secrets.SSH_PUB_KEY_HOME_LAB }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          echo "$SSH_PUBLIC_KEY" > ~/.ssh/id_rsa.pub
+          ssh-keyscan -H "$HOME_LAB_IP" >> ~/.ssh/known_hosts
+          echo "ANSIBLE_SSH_KEY_PATH=${HOME}/.ssh/id_rsa" >> "$GITHUB_ENV"
+
+      - name: Run Ansible playbook
+        env:
+          ANSIBLE_SSH_KEY_PATH: ${{ env.ANSIBLE_SSH_KEY_PATH }}
+        run: |
+          ansible-playbook ansible/playbooks/deploy.yml \
+            -e ansible_password="$HOME_LAB_PASSWORD" \
+            -e ansible_become_password="$HOME_LAB_PASSWORD"

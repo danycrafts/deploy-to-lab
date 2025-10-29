@@ -1,0 +1,15 @@
+---
+- name: Deploy homelab services
+  hosts: home_lab
+  become: true
+  vars:
+    ansible_ssh_private_key_file: "{{ lookup('env', 'ANSIBLE_SSH_KEY_PATH') | default(omit) }}"
+  roles:
+    - role: common
+    - role: mailcow
+    - role: postgres
+    - role: nextcloud
+    - role: n8n
+    - role: pgadmin
+    - role: qdrant
+    - role: nginx_proxy_manager

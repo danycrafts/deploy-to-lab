@@ -1,0 +1,37 @@
+---
+- name: Ensure Nginx Proxy Manager directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0750"
+  loop:
+    - "{{ nginx_proxy_manager_data_path }}"
+    - "{{ nginx_proxy_manager_data_path }}/data"
+    - "{{ nginx_proxy_manager_data_path }}/letsencrypt"
+    - "{{ nginx_proxy_manager_data_path }}/db"
+  when: nginx_proxy_manager_state == 'present'
+
+- name: Deploy Nginx Proxy Manager compose file
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ nginx_proxy_manager_data_path }}/docker-compose.yml"
+    mode: "0644"
+  when: nginx_proxy_manager_state == 'present'
+
+- name: Ensure Nginx Proxy Manager stack is running
+  community.docker.docker_compose:
+    project_src: "{{ nginx_proxy_manager_data_path }}"
+    state: present
+  when: nginx_proxy_manager_state == 'present'
+
+- name: Tear down Nginx Proxy Manager stack when absent
+  community.docker.docker_compose:
+    project_src: "{{ nginx_proxy_manager_data_path }}"
+    state: absent
+  when: nginx_proxy_manager_state == 'absent'
+
+- name: Remove Nginx Proxy Manager directory when absent
+  ansible.builtin.file:
+    path: "{{ nginx_proxy_manager_data_path }}"
+    state: absent
+  when: nginx_proxy_manager_state == 'absent'

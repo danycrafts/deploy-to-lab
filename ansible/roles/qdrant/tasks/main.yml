@@ -1,0 +1,32 @@
+---
+- name: Ensure Qdrant data directory exists
+  ansible.builtin.file:
+    path: "{{ qdrant_data_path }}"
+    state: directory
+    mode: "0750"
+  when: qdrant_state == 'present'
+
+- name: Deploy Qdrant compose file
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ qdrant_data_path }}/docker-compose.yml"
+    mode: "0644"
+  when: qdrant_state == 'present'
+
+- name: Ensure Qdrant stack is running
+  community.docker.docker_compose:
+    project_src: "{{ qdrant_data_path }}"
+    state: present
+  when: qdrant_state == 'present'
+
+- name: Tear down Qdrant stack when absent
+  community.docker.docker_compose:
+    project_src: "{{ qdrant_data_path }}"
+    state: absent
+  when: qdrant_state == 'absent'
+
+- name: Remove Qdrant directory when absent
+  ansible.builtin.file:
+    path: "{{ qdrant_data_path }}"
+    state: absent
+  when: qdrant_state == 'absent'

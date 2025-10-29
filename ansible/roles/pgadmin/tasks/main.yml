@@ -1,0 +1,32 @@
+---
+- name: Ensure pgAdmin data directory exists
+  ansible.builtin.file:
+    path: "{{ pgadmin_data_path }}"
+    state: directory
+    mode: "0750"
+  when: pgadmin_state == 'present'
+
+- name: Deploy pgAdmin compose file
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ pgadmin_data_path }}/docker-compose.yml"
+    mode: "0644"
+  when: pgadmin_state == 'present'
+
+- name: Ensure pgAdmin stack is running
+  community.docker.docker_compose:
+    project_src: "{{ pgadmin_data_path }}"
+    state: present
+  when: pgadmin_state == 'present'
+
+- name: Tear down pgAdmin stack when absent
+  community.docker.docker_compose:
+    project_src: "{{ pgadmin_data_path }}"
+    state: absent
+  when: pgadmin_state == 'absent'
+
+- name: Remove pgAdmin directory when absent
+  ansible.builtin.file:
+    path: "{{ pgadmin_data_path }}"
+    state: absent
+  when: pgadmin_state == 'absent'

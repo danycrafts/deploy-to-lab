@@ -1,0 +1,9 @@
+all:
+  children:
+    home_lab:
+      hosts:
+        home_server:
+          ansible_host: "{{ lookup('env', 'HOME_LAB_IP') | default('192.0.2.10', true) }}"
+          ansible_user: "{{ lookup('env', 'HOME_LAB_USER') | default('ubuntu', true) }}"
+          ansible_port: 22
+          ansible_python_interpreter: /usr/bin/python3
