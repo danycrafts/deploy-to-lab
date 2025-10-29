@@ -34,12 +34,18 @@
 
 - name: Ensure community.docker collection dependencies are present
   ansible.builtin.pip:
-    name:
-      - docker
-      - docker-compose
+    requirements: "{{ python_virtualenv_root }}/{{ community_docker_requirements_filename }}"
+    virtualenv: "{{ python_virtualenv_root }}/{{ community_docker_venv_name }}"
+    virtualenv_command: python3 -m venv
     state: present
     extra_args: >-
       {{ '--upgrade --break-system-packages'
          if python_externally_managed.stat.exists | default(false)
          else '--upgrade' }}
+
+- name: Cache community.docker Python interpreter path
+  ansible.builtin.set_fact:
+    community_docker_python_interpreter: "{{ python_virtualenv_root }}/{{ community_docker_venv_name }}/bin/python"
+    docker_python_interpreter: "{{ python_virtualenv_root }}/{{ community_docker_venv_name }}/bin/python"
+  cacheable: true
 

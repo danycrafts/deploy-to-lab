@@ -1,2 +1,16 @@
 ---
 postgres_state: present
+postgres_project_name: postgres
+postgres_data_path: "{{ base_deploy_path }}/postgres"
+
+postgres_compose_defaults:
+  project_src: "{{ postgres_data_path }}"
+  state: "{{ 'present' if postgres_state == 'present' else 'absent' }}"
+  project_name: "{{ postgres_project_name }}"
+  pull: true
+  recreate: smart
+  remove_orphans: true
+  build: false
+
+postgres_compose_overrides: {}
+postgres_compose: "{{ postgres_compose_defaults | combine(postgres_compose_overrides, recursive=True) }}"

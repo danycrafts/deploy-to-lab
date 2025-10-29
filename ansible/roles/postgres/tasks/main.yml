@@ -4,29 +4,23 @@
     path: "{{ postgres_data_path }}"
     state: directory
     mode: "0750"
-  when: postgres_state == 'present'
+  when: postgres_compose.state != 'absent'
 
 - name: Deploy PostgreSQL compose file
   ansible.builtin.template:
     src: docker-compose.yml.j2
     dest: "{{ postgres_data_path }}/docker-compose.yml"
     mode: "0644"
-  when: postgres_state == 'present'
+  when: postgres_compose.state != 'absent'
 
-- name: Ensure PostgreSQL stack is running
-  community.docker.docker_compose:
-    project_src: "{{ postgres_data_path }}"
-    state: present
-  when: postgres_state == 'present'
-
-- name: Tear down PostgreSQL stack when absent
-  community.docker.docker_compose:
-    project_src: "{{ postgres_data_path }}"
-    state: absent
-  when: postgres_state == 'absent'
+- name: Reconcile PostgreSQL compose project
+  community.docker.docker_compose: "{{ postgres_compose }}"
+  vars:
+    ansible_python_interpreter: "{{ hostvars[inventory_hostname].docker_python_interpreter | default(ansible_facts.python.executable | default('/usr/bin/python3')) }}"
+  when: postgres_compose.state in ['present', 'absent']
 
 - name: Remove PostgreSQL directory when absent
   ansible.builtin.file:
     path: "{{ postgres_data_path }}"
     state: absent
-  when: postgres_state == 'absent'
+  when: postgres_compose.state == 'absent'

@@ -8,29 +8,23 @@
     - "{{ nextcloud_data_path }}"
     - "{{ nextcloud_data_path }}/app"
     - "{{ nextcloud_data_path }}/db"
-  when: nextcloud_state == 'present'
+  when: nextcloud_compose.state != 'absent'
 
 - name: Deploy Nextcloud compose file
   ansible.builtin.template:
     src: docker-compose.yml.j2
     dest: "{{ nextcloud_data_path }}/docker-compose.yml"
     mode: "0644"
-  when: nextcloud_state == 'present'
+  when: nextcloud_compose.state != 'absent'
 
-- name: Ensure Nextcloud stack is running
-  community.docker.docker_compose:
-    project_src: "{{ nextcloud_data_path }}"
-    state: present
-  when: nextcloud_state == 'present'
-
-- name: Tear down Nextcloud stack when absent
-  community.docker.docker_compose:
-    project_src: "{{ nextcloud_data_path }}"
-    state: absent
-  when: nextcloud_state == 'absent'
+- name: Reconcile Nextcloud compose project
+  community.docker.docker_compose: "{{ nextcloud_compose }}"
+  vars:
+    ansible_python_interpreter: "{{ hostvars[inventory_hostname].docker_python_interpreter | default(ansible_facts.python.executable | default('/usr/bin/python3')) }}"
+  when: nextcloud_compose.state in ['present', 'absent']
 
 - name: Remove Nextcloud directory when absent
   ansible.builtin.file:
     path: "{{ nextcloud_data_path }}"
     state: absent
-  when: nextcloud_state == 'absent'
+  when: nextcloud_compose.state == 'absent'

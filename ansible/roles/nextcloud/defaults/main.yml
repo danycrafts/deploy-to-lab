@@ -1,2 +1,16 @@
 ---
 nextcloud_state: present
+nextcloud_project_name: nextcloud
+nextcloud_data_path: "{{ base_deploy_path }}/nextcloud"
+
+nextcloud_compose_defaults:
+  project_src: "{{ nextcloud_data_path }}"
+  state: "{{ 'present' if nextcloud_state == 'present' else 'absent' }}"
+  project_name: "{{ nextcloud_project_name }}"
+  pull: true
+  recreate: smart
+  remove_orphans: true
+  build: false
+
+nextcloud_compose_overrides: {}
+nextcloud_compose: "{{ nextcloud_compose_defaults | combine(nextcloud_compose_overrides, recursive=True) }}"

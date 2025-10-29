@@ -1,2 +1,16 @@
 ---
 pgadmin_state: present
+pgadmin_project_name: pgadmin
+pgadmin_data_path: "{{ base_deploy_path }}/pgadmin"
+
+pgadmin_compose_defaults:
+  project_src: "{{ pgadmin_data_path }}"
+  state: "{{ 'present' if pgadmin_state == 'present' else 'absent' }}"
+  project_name: "{{ pgadmin_project_name }}"
+  pull: true
+  recreate: smart
+  remove_orphans: true
+  build: false
+
+pgadmin_compose_overrides: {}
+pgadmin_compose: "{{ pgadmin_compose_defaults | combine(pgadmin_compose_overrides, recursive=True) }}"
