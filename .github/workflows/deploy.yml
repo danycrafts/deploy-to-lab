@@ -1,69 +1,65 @@
-name: Deploy to Home Lab
+name: Manage Home Lab Services
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
+    inputs:
+      action:
+        description: "Operation to perform"
+        required: true
+        default: install
+        type: choice
+        options:
+          - install
+          - update
+          - uninstall
+      target:
+        description: "Remote target in user@host format"
+        required: true
+        type: string
+      ssh_port:
+        description: "SSH port for the remote host"
+        required: false
+        default: '22'
+        type: string
+      compose_command:
+        description: "Docker compose command available on the remote host"
+        required: false
+        default: "docker compose"
+        type: string
+      services:
+        description: "Whitespace-separated list of services to manage (leave blank for all)"
+        required: false
+        default: ""
+        type: string
 
 concurrency:
-  group: deploy-home-lab
-  cancel-in-progress: true
+  group: manage-home-lab-services
+  cancel-in-progress: false
 
 jobs:
-  deploy:
-    name: Run Ansible deployment
+  manage:
+    name: ${{ inputs.action }} services
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    environment:
-      name: production
     env:
-      ANSIBLE_CONFIG: ansible/ansible.cfg
-      ANSIBLE_INVENTORY: ansible/inventory/home_lab.yml
-      HOME_LAB_IP: ${{ secrets.HOME_LAB_IP }}
-      HOME_LAB_USER: ${{ secrets.HOME_LAB_USER }}
-      HOME_LAB_PASSWORD: ${{ secrets.HOME_LAB_PASSWORD }}
-      ANSIBLE_BECOME_PASS: ${{ secrets.HOME_LAB_PASSWORD }}
-    defaults:
-      run:
-        shell: bash
+      TARGET: ${{ inputs.target }}
+      SSH_PORT: ${{ inputs.ssh_port }}
+      COMPOSE_COMMAND: ${{ inputs.compose_command }}
+      SERVICES: ${{ inputs.services }}
+      ACTION: ${{ inputs.action }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Validate required secrets
+      - name: Ensure SSH private key is available
         env:
           SSH_PRIVATE_KEY_HOME_LAB: ${{ secrets.SSH_PRIVATE_KEY_HOME_LAB }}
         run: |
-          missing=()
-          for var in HOME_LAB_IP HOME_LAB_PASSWORD SSH_PRIVATE_KEY_HOME_LAB; do
-            if [ -z "${!var}" ]; then
-              missing+=("$var")
-            fi
-          done
-          if [ "${#missing[@]}" -ne 0 ]; then
-            printf '::error::Missing required secrets: %s\n' "${missing[*]}"
+          if [ -z "${SSH_PRIVATE_KEY_HOME_LAB:-}" ]; then
+            echo "::error::Missing required secret SSH_PRIVATE_KEY_HOME_LAB" >&2
             exit 1
           fi
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-          cache-dependency-path: ansible/requirements.txt
-
-      - name: Install Ansible Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install --requirement ansible/requirements.txt
-
-      - name: Install Ansible Galaxy collections
-        run: ansible-galaxy collection install --requirements-file ansible/requirements.yml --force
-
-      - name: Display Ansible version
-        run: ansible --version
 
       - name: Prepare SSH agent
         uses: webfactory/ssh-agent@v0.9.0
@@ -72,12 +68,58 @@ jobs:
 
       - name: Populate known hosts
         run: |
+          set -euo pipefail
           mkdir -p ~/.ssh
-          ssh-keyscan -H "$HOME_LAB_IP" >> ~/.ssh/known_hosts
+          host="${TARGET##*@}"
+          if [ -z "$host" ]; then
+            echo "::error::Unable to determine host from target '$TARGET'" >&2
+            exit 1
+          fi
+          ssh-keyscan -p "$SSH_PORT" -H "$host" >> ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
-      - name: Run Ansible playbook
+      - name: Run management script
         run: |
-          ansible-playbook ansible/playbooks/deploy.yml \
-            -e ansible_password="$HOME_LAB_PASSWORD" \
-            -e ansible_become_password="$HOME_LAB_PASSWORD"
+          set -euo pipefail
+
+          if [ -z "${TARGET:-}" ]; then
+            echo "::error::Target is required" >&2
+            exit 1
+          fi
+
+          case "$ACTION" in
+            install)
+              script="install.sh"
+              ;;
+            update)
+              script="configure.sh"
+              ;;
+            uninstall)
+              script="uninstall.sh"
+              ;;
+            *)
+              echo "::error::Unsupported action: $ACTION" >&2
+              exit 1
+              ;;
+          esac
+
+          args=("./scripts/$script")
+
+          if [ -n "${SSH_PORT:-}" ]; then
+            args+=("--port" "$SSH_PORT")
+          fi
+
+          if [ -n "${COMPOSE_COMMAND:-}" ]; then
+            args+=("--compose-cmd" "$COMPOSE_COMMAND")
+          fi
+
+          read -r -a service_array <<<"${SERVICES:-}"
+
+          if [ "${#service_array[@]}" -gt 0 ]; then
+            args+=("$TARGET" "${service_array[@]}")
+          else
+            args+=("$TARGET")
+          fi
+
+          echo "Running: ${args[*]}"
+          "${args[@]}"
