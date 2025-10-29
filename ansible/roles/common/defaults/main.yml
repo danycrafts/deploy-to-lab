@@ -1,0 +1,13 @@
+---
+# Default base deployment path for homelab services
+base_deploy_path: /opt/homelab
+
+# Default package installation behaviour
+common_packages:
+  - git
+  - curl
+  - vim
+  - ufw
+  - python3-pip
+  - unattended-upgrades
+common_upgrade: true
