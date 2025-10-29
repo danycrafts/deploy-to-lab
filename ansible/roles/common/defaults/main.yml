@@ -9,5 +9,14 @@ common_packages:
   - vim
   - ufw
   - python3-pip
+  - python3-venv
   - unattended-upgrades
 common_upgrade: true
+
+# Python virtual environment management for docker tooling
+python_virtualenv_root: "{{ base_deploy_path }}/venvs"
+community_docker_venv_name: community-docker
+community_docker_requirements:
+  - docker
+  - docker-compose
+community_docker_requirements_filename: community-docker-requirements.txt

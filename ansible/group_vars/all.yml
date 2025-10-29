@@ -9,11 +9,9 @@ common_packages:
   - vim
   - ufw
   - python3-pip
+  - python3-venv
   - unattended-upgrades
 common_upgrade: true
-
-# Docker compose binary path
-compose_command: docker compose
 
 # Mailcow configuration
 mailcow_state: present

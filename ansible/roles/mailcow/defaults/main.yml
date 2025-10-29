@@ -1,2 +1,16 @@
 ---
 mailcow_state: present
+mailcow_project_name: mailcow
+mailcow_data_path: "{{ base_deploy_path }}/mailcow"
+
+mailcow_compose_defaults:
+  project_src: "{{ mailcow_data_path }}"
+  state: "{{ 'present' if mailcow_state == 'present' else 'absent' }}"
+  project_name: "{{ mailcow_project_name }}"
+  pull: true
+  recreate: smart
+  remove_orphans: true
+  build: false
+
+mailcow_compose_overrides: {}
+mailcow_compose: "{{ mailcow_compose_defaults | combine(mailcow_compose_overrides, recursive=True) }}"

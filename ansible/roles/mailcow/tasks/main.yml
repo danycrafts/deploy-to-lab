@@ -4,7 +4,7 @@
     path: "{{ mailcow_data_path }}"
     state: directory
     mode: "0750"
-  when: mailcow_state == 'present'
+  when: mailcow_compose.state != 'absent'
 
 - name: Fetch Mailcow repository
   ansible.builtin.git:
@@ -12,29 +12,23 @@
     dest: "{{ mailcow_data_path }}"
     version: "{{ mailcow_version }}"
     force: true
-  when: mailcow_state == 'present'
+  when: mailcow_compose.state != 'absent'
 
 - name: Render Mailcow configuration
   ansible.builtin.template:
     src: mailcow.conf.j2
     dest: "{{ mailcow_data_path }}/mailcow.conf"
     mode: "0640"
-  when: mailcow_state == 'present'
+  when: mailcow_compose.state != 'absent'
 
-- name: Start Mailcow stack
-  community.docker.docker_compose:
-    project_src: "{{ mailcow_data_path }}"
-    state: present
-  when: mailcow_state == 'present'
-
-- name: Stop Mailcow stack when absent
-  community.docker.docker_compose:
-    project_src: "{{ mailcow_data_path }}"
-    state: absent
-  when: mailcow_state == 'absent'
+- name: Reconcile Mailcow compose project
+  community.docker.docker_compose: "{{ mailcow_compose }}"
+  vars:
+    ansible_python_interpreter: "{{ hostvars[inventory_hostname].docker_python_interpreter | default(ansible_facts.python.executable | default('/usr/bin/python3')) }}"
+  when: mailcow_compose.state in ['present', 'absent']
 
 - name: Remove Mailcow directory when absent
   ansible.builtin.file:
     path: "{{ mailcow_data_path }}"
     state: absent
-  when: mailcow_state == 'absent'
+  when: mailcow_compose.state == 'absent'

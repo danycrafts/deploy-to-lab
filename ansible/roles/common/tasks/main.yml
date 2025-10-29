@@ -27,11 +27,29 @@
       - python3-docker
     state: present
 
-- name: Ensure community.docker collection dependencies are present
+- name: Ensure Python virtual environment root exists
+  ansible.builtin.file:
+    path: "{{ python_virtualenv_root }}"
+    state: directory
+    mode: "0755"
+
+- name: Deploy community.docker requirements manifest
+  ansible.builtin.template:
+    src: community_docker_requirements.txt.j2
+    dest: "{{ python_virtualenv_root }}/{{ community_docker_requirements_filename }}"
+    mode: "0644"
+
+- name: Install community.docker dependencies into virtualenv
   ansible.builtin.pip:
-    name:
-      - docker
-      - docker-compose
+    requirements: "{{ python_virtualenv_root }}/{{ community_docker_requirements_filename }}"
+    virtualenv: "{{ python_virtualenv_root }}/{{ community_docker_venv_name }}"
+    virtualenv_command: python3 -m venv
     state: present
     extra_args: --upgrade
+
+- name: Cache community.docker Python interpreter path
+  ansible.builtin.set_fact:
+    community_docker_python_interpreter: "{{ python_virtualenv_root }}/{{ community_docker_venv_name }}/bin/python"
+    docker_python_interpreter: "{{ python_virtualenv_root }}/{{ community_docker_venv_name }}/bin/python"
+  cacheable: true
 
