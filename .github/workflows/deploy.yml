@@ -6,45 +6,77 @@ on:
       - main
   workflow_dispatch:
 
+concurrency:
+  group: deploy-home-lab
+  cancel-in-progress: true
+
 jobs:
   deploy:
+    name: Run Ansible deployment
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    environment:
+      name: production
     env:
       ANSIBLE_CONFIG: ansible/ansible.cfg
+      ANSIBLE_INVENTORY: ansible/inventory/home_lab.yml
       HOME_LAB_IP: ${{ secrets.HOME_LAB_IP }}
       HOME_LAB_USER: ${{ secrets.HOME_LAB_USER }}
       HOME_LAB_PASSWORD: ${{ secrets.HOME_LAB_PASSWORD }}
       ANSIBLE_BECOME_PASS: ${{ secrets.HOME_LAB_PASSWORD }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        env:
+          SSH_PRIVATE_KEY_HOME_LAB: ${{ secrets.SSH_PRIVATE_KEY_HOME_LAB }}
+        run: |
+          missing=()
+          for var in HOME_LAB_IP HOME_LAB_PASSWORD SSH_PRIVATE_KEY_HOME_LAB; do
+            if [ -z "${!var}" ]; then
+              missing+=("$var")
+            fi
+          done
+          if [ "${#missing[@]}" -ne 0 ]; then
+            printf '::error::Missing required secrets: %s\n' "${missing[*]}"
+            exit 1
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: ansible/requirements.txt
 
-      - name: Install Ansible dependencies
+      - name: Install Ansible Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install ansible==9.5.1
-          ansible-galaxy collection install -r ansible/requirements.yml
+          pip install --requirement ansible/requirements.txt
 
-      - name: Configure SSH access
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY_HOME_LAB }}
-          SSH_PUBLIC_KEY: ${{ secrets.SSH_PUB_KEY_HOME_LAB }}
+      - name: Install Ansible Galaxy collections
+        run: ansible-galaxy collection install --requirements-file ansible/requirements.yml --force
+
+      - name: Display Ansible version
+        run: ansible --version
+
+      - name: Prepare SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY_HOME_LAB }}
+
+      - name: Populate known hosts
         run: |
           mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          echo "$SSH_PUBLIC_KEY" > ~/.ssh/id_rsa.pub
           ssh-keyscan -H "$HOME_LAB_IP" >> ~/.ssh/known_hosts
-          echo "ANSIBLE_SSH_KEY_PATH=${HOME}/.ssh/id_rsa" >> "$GITHUB_ENV"
+          chmod 600 ~/.ssh/known_hosts
 
       - name: Run Ansible playbook
-        env:
-          ANSIBLE_SSH_KEY_PATH: ${{ env.ANSIBLE_SSH_KEY_PATH }}
         run: |
           ansible-playbook ansible/playbooks/deploy.yml \
             -e ansible_password="$HOME_LAB_PASSWORD" \
